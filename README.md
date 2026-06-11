@@ -170,13 +170,3 @@ tag in both lines of your setup:
 packages:
   tof_device: github://itsaustinjordan/esphome-vl53l4cx/packages/tof_sensor.yaml@v1.1.0
 ```
-
-## Credits & history
-
-Built on ST's official `STM32duino VL53L4CX` driver (BSD-3-Clause, fetched
-at compile time). This chip went unsupported in ESPHome for four years
-because of a stack of separate traps: a driver object that must be
-heap-allocated on ESP32 (esphome/issues#3869), a mandatory interrupt-clear
-after every read, ESPHome removing the old `custom:` component system, and
-2025+ hybrid Arduino-on-IDF builds no longer auto-linking the Arduino `Wire`
-library. This component handles all of it. MIT licensed — see LICENSE.
