@@ -48,8 +48,7 @@ database-friendly out of the box (reports on ≥5 mm change + 60 s heartbeat).
 
 STEMMA QT cable: red→3V3, black→GND, blue→SDA, yellow→SCL.
 
-> ⚠️ **Peel the clear protective film off the sensor window.** Everyone
-> misses it, and it ruins readings.
+> ⚠️ **Peel the clear protective film off the sensor window.**
 
 ### 2 — Add your secrets (one time, covers all future sensors)
 
@@ -59,7 +58,7 @@ fill in:
 ```yaml
 wifi_ssid: "YourNetworkName"
 wifi_password: "YourWifiPassword"
-tof_api_key: "PASTE-A-GENERATED-KEY-HERE"   # openssl rand -base64 32
+tof_api_key: "PASTE-A-GENERATED-KEY-HERE"   # Open terminal and run 'openssl rand -base64 32' to generate a random key
 fallback_ap_password: "ChangeMe123"
 ```
 
