@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.2.1
+
+- Fix deprecation warnings on ESPHome 2026.5+ (`raw_state` ->
+  `get_raw_state()`); would become a hard error in 2026.10.
+- Distribution now pins release tags end-to-end instead of `@main`,
+  eliminating stale-cache version mismatches between the remote package
+  and the remote component. Update devices by bumping the tag in their
+  device file.
+
+
 ## v1.2.0
 
 - **Presence entity** (occupancy) with an adjustable **Presence Threshold**

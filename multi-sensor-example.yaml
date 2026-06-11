@@ -33,7 +33,7 @@ wifi:
 captive_portal:
 
 external_components:
-  - source: github://itsaustinjordan/esphome-vl53l4cx@main
+  - source: github://itsaustinjordan/esphome-vl53l4cx@v1.2.1
     components: [ vl53l4cx ]
     refresh: 1d
 

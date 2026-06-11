@@ -23,7 +23,7 @@ esphome:
   min_version: "2025.2.0"
   project:
     name: itsaustinjordan.esphome-vl53l4cx
-    version: "1.2.0"
+    version: "1.2.1"
 
 esp32:
   board: ${board}
@@ -50,7 +50,7 @@ captive_portal:
 
 # The driver is pulled straight from GitHub at compile time.
 external_components:
-  - source: github://itsaustinjordan/esphome-vl53l4cx@main
+  - source: github://itsaustinjordan/esphome-vl53l4cx@v1.2.1
     components: [ vl53l4cx ]
     refresh: 1d
 
@@ -95,9 +95,9 @@ binary_sensor:
     id: tof_presence
     device_class: occupancy
     lambda: |-
-      if (isnan(id(tof_distance).raw_state))
+      if (isnan(id(tof_distance).get_raw_state()))
         return false;
-      return id(tof_distance).raw_state < id(presence_threshold).state;
+      return id(tof_distance).get_raw_state() < id(presence_threshold).state;
     filters:
       - delayed_off: ${presence_off_delay}
 

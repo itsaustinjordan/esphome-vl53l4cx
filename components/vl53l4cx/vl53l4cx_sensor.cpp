@@ -12,7 +12,7 @@ namespace esphome {
 namespace vl53l4cx {
 
 static const char *const TAG = "vl53l4cx";
-static const char *const COMPONENT_VERSION = "1.2.0";
+static const char *const COMPONENT_VERSION = "1.2.1";
 
 std::vector<VL53L4CXComponent *> VL53L4CXComponent::instances_;
 bool VL53L4CXComponent::bus_started_ = false;

@@ -78,7 +78,7 @@ substitutions:
   scl_pin: GPIO22
 
 packages:
-  tof_device: github://itsaustinjordan/esphome-vl53l4cx/packages/tof_sensor.yaml@main
+  tof_device: github://itsaustinjordan/esphome-vl53l4cx/packages/tof_sensor.yaml@v1.2.1
 ```
 
 ### 4 — Install
@@ -162,7 +162,7 @@ example): `address` (default 0x29; non-default requires `xshut_pin`),
 | Symptom | Fix |
 |---|---|
 | Build can't fetch the repo | Check the `github://` line for typos. |
-| Changed settings on GitHub aren't picked up | Device card → three-dot menu → **Clean Build Files** → Install (remote files are cached up to a day). |
+| New version isn't picked up after updating | Your device file must point at the **new release tag** (e.g. `@v1.2.1`). Tags are never cached stale; `@main` is cached up to a day in two separate caches. |
 | `No ACK at boot address 0x29` | Wiring: SDA/SCL swapped, wrong pins in YAML, loose 3V3/GND. Power-cycle the sensor fully. |
 | Distance stuck at a small constant | Protective film still on, or an enclosure edge in the laser's view. |
 | Jittery readings | Raise the **Timing Budget** slider; lengthen **Update Interval**. |
@@ -186,14 +186,17 @@ button → Download ZIP), copy the `components/` and `packages/` folders into
 `external_components` source from the `github://` line to `components`.
 Device files then use `packages: tof_device: !include packages/tof_sensor.yaml`.
 
-## Pinning a version
+## Versions and updates
 
-Releases are tagged — see [CHANGELOG.md](CHANGELOG.md). For configs that
-never change underneath you, pin the tag:
+Device files pin a release tag — that's what the `@v1.2.1` at the end of
+the `packages:` line means. To update a device after a new release, change
+the tag in its device file and Install. Pinned tags always download fresh,
+so there is never a cache to clear. See [CHANGELOG.md](CHANGELOG.md) for
+versions. Current:
 
 ```yaml
 packages:
-  tof_device: github://itsaustinjordan/esphome-vl53l4cx/packages/tof_sensor.yaml@v1.2.0
+  tof_device: github://itsaustinjordan/esphome-vl53l4cx/packages/tof_sensor.yaml@v1.2.1
 ```
 
 ## Credits & history

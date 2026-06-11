@@ -9,4 +9,4 @@ substitutions:
   scl_pin: GPIO22
 
 packages:
-  tof_device: github://itsaustinjordan/esphome-vl53l4cx/packages/tof_sensor.yaml@main
+  tof_device: github://itsaustinjordan/esphome-vl53l4cx/packages/tof_sensor.yaml@v1.2.1
