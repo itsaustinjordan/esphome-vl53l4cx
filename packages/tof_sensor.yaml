@@ -1,0 +1,65 @@
+# =====================================================================
+# ToF Sensor device package -- referenced remotely from this GitHub
+# repo. End users never edit or download this file; their per-device
+# YAML overrides the substitutions below. See README.
+# =====================================================================
+
+substitutions:
+  # Defaults -- override any of these in your per-device file
+  name: tof-sensor
+  friendly_name: ToF Sensor
+  board: wemos_d1_mini32
+  sda_pin: GPIO21
+  scl_pin: GPIO22
+  distance_mode: long          # short / medium / long (long = up to ~6 m)
+  timing_budget: 50ms          # 20ms-500ms; longer = more accurate
+  update_interval: 500ms       # must be longer than timing_budget
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+
+esp32:
+  board: ${board}
+  framework:
+    type: arduino              # REQUIRED -- the ST driver is an Arduino library
+
+logger:
+
+api:
+  encryption:
+    key: !secret tof_api_key   # one shared key for all ToF devices
+
+ota:
+  - platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "${name} Fallback"
+    password: !secret fallback_ap_password
+
+captive_portal:
+
+# The driver is pulled straight from this repo at compile time.
+external_components:
+  - source: github://itsaustinjordan/esphome-vl53l4cx@main
+    components: [ vl53l4cx ]
+    refresh: 1d
+
+sensor:
+  - platform: vl53l4cx
+    sda_pin: ${sda_pin}
+    scl_pin: ${scl_pin}
+    distance:
+      name: Distance
+      filters:
+        - sliding_window_moving_average:
+            window_size: 3
+            send_every: 1
+    object_count:
+      name: Object Count
+    distance_mode: ${distance_mode}
+    timing_budget: ${timing_budget}
+    update_interval: ${update_interval}

@@ -1,0 +1,59 @@
+# ADVANCED: two VL53L4CX sensors on ONE board.
+# Rules: every sensor needs its own xshut_pin, a unique address,
+# and they all share the same sda/scl pins.
+substitutions:
+  name: tof-double
+  friendly_name: Double ToF
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+
+esp32:
+  board: wemos_d1_mini32
+  framework:
+    type: arduino
+
+logger:
+
+api:
+  encryption:
+    key: !secret tof_api_key
+
+ota:
+  - platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "${name} Fallback"
+    password: !secret fallback_ap_password
+
+captive_portal:
+
+external_components:
+  - source: github://itsaustinjordan/esphome-vl53l4cx@main
+    components: [ vl53l4cx ]
+    refresh: 1d
+
+sensor:
+  - platform: vl53l4cx          # sensor A: keeps the default address
+    sda_pin: GPIO21
+    scl_pin: GPIO22
+    xshut_pin: GPIO16           # wired to sensor A's XSHUT
+    address: 0x29
+    distance:
+      name: Left Distance
+    object_count:
+      name: Left Object Count
+
+  - platform: vl53l4cx          # sensor B: re-addressed at boot
+    sda_pin: GPIO21             # same bus
+    scl_pin: GPIO22
+    xshut_pin: GPIO17           # wired to sensor B's XSHUT
+    address: 0x30               # unique address
+    distance:
+      name: Right Distance
+    object_count:
+      name: Right Object Count

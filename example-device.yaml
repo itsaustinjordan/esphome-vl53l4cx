@@ -1,0 +1,12 @@
+# ============================================================
+# THIS IS THE ENTIRE CONFIG FOR ONE SENSOR.
+# Copy into a new file in /config/esphome/, edit 4 lines, Install.
+# ============================================================
+substitutions:
+  name: tof-kitchen              # lowercase + hyphens, unique per device
+  friendly_name: Kitchen ToF     # how it appears in Home Assistant
+  sda_pin: GPIO21                # match your wiring
+  scl_pin: GPIO22
+
+packages:
+  tof_device: github://itsaustinjordan/esphome-vl53l4cx/packages/tof_sensor.yaml@main
