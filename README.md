@@ -174,8 +174,7 @@ example): `address` (default 0x29; non-default requires `xshut_pin`),
 
 Automate on **Presence** for arrive/leave. For numeric logic, **Distance**
 is a normal sensor — Numeric State triggers ("below 800 for 5 s" = car
-pulled in far enough). **Object Count** going `1 → 2` at a doorway makes a
-fun people counter.
+pulled in far enough). **Object Count** going `1 → 2` at a doorway makes a simple people counter.
 
 ## Offline / no-GitHub install
 
