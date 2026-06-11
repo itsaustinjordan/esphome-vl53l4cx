@@ -12,7 +12,7 @@ namespace esphome {
 namespace vl53l4cx {
 
 static const char *const TAG = "vl53l4cx";
-static const char *const COMPONENT_VERSION = "1.1.0";
+static const char *const COMPONENT_VERSION = "1.2.0";
 
 std::vector<VL53L4CXComponent *> VL53L4CXComponent::instances_;
 bool VL53L4CXComponent::bus_started_ = false;
@@ -117,8 +117,59 @@ void VL53L4CXComponent::setup() {
     return;
   }
 
+  this->ranging_ = true;
+  this->last_data_ms_ = millis();
   ESP_LOGCONFIG(TAG, "VL53L4CX at 0x%02X is ranging", this->address_);
 }
+
+// ---- Runtime controls ------------------------------------------------------
+// Before setup() runs (e.g. restored HA values publishing at boot) these just
+// stage the value; setup() then starts with it. After setup() they pause
+// ranging, apply, and resume -- no reboot, no reflash.
+
+void VL53L4CXComponent::apply_distance_mode(uint8_t mode) {
+  if (mode < 1 || mode > 3 || mode == this->distance_mode_)
+    return;
+  this->distance_mode_ = mode;
+  if (!this->ranging_ || this->is_failed() || this->tof_ == nullptr)
+    return;  // staged; setup() will use it
+  this->tof_->VL53L4CX_StopMeasurement();
+  VL53L4CX_Error status = this->tof_->VL53L4CX_SetDistanceMode((VL53L4CX_DistanceModes) mode);
+  if (status != 0)
+    ESP_LOGW(TAG, "SetDistanceMode() failed, status %d", (int) status);
+  this->tof_->VL53L4CX_StartMeasurement();
+  this->last_data_ms_ = millis();
+  ESP_LOGI(TAG, "Distance mode -> %u (1=short 2=medium 3=long)", mode);
+}
+
+void VL53L4CXComponent::apply_timing_budget_ms(uint32_t budget_ms) {
+  uint32_t budget_us = budget_ms * 1000U;
+  if (budget_ms < 20 || budget_ms > 500 || budget_us == this->timing_budget_us_)
+    return;
+  this->timing_budget_us_ = budget_us;
+  if (!this->ranging_ || this->is_failed() || this->tof_ == nullptr)
+    return;  // staged; setup() will use it
+  this->tof_->VL53L4CX_StopMeasurement();
+  VL53L4CX_Error status = this->tof_->VL53L4CX_SetMeasurementTimingBudgetMicroSeconds(budget_us);
+  if (status != 0)
+    ESP_LOGW(TAG, "SetTimingBudget() failed, status %d", (int) status);
+  this->tof_->VL53L4CX_StartMeasurement();
+  this->last_data_ms_ = millis();
+  ESP_LOGI(TAG, "Timing budget -> %u ms", (unsigned) budget_ms);
+}
+
+void VL53L4CXComponent::apply_update_interval_ms(uint32_t interval_ms) {
+  if (interval_ms < 100 || interval_ms > 10000 || interval_ms == this->get_update_interval())
+    return;
+  this->set_update_interval(interval_ms);
+  if (this->ranging_) {
+    this->stop_poller();
+    this->start_poller();
+  }
+  ESP_LOGI(TAG, "Update interval -> %u ms", (unsigned) interval_ms);
+}
+
+// ----------------------------------------------------------------------------
 
 void VL53L4CXComponent::update() {
   if (this->is_failed() || this->tof_ == nullptr)
@@ -135,15 +186,17 @@ void VL53L4CXComponent::update() {
   }
 
   if (!data_ready) {
-    if (++this->not_ready_count_ >= 5) {
-      // Watchdog for a stalled ranging engine: kick it back into gear.
-      ESP_LOGW(TAG, "No data for %u cycles; restarting measurement", (unsigned) this->not_ready_count_);
+    // Stalled-ranging watchdog, time based so it never fires while a long
+    // timing budget is legitimately still measuring.
+    uint32_t timeout_ms = (this->timing_budget_us_ / 1000U) * 2U + 2000U;
+    if (millis() - this->last_data_ms_ > timeout_ms) {
+      ESP_LOGW(TAG, "No data for %u ms; restarting measurement", (unsigned) timeout_ms);
       this->tof_->VL53L4CX_ClearInterruptAndStartMeasurement();
-      this->not_ready_count_ = 0;
+      this->last_data_ms_ = millis();
     }
     return;
   }
-  this->not_ready_count_ = 0;
+  this->last_data_ms_ = millis();
 
   VL53L4CX_MultiRangingData_t data;
   status = this->tof_->VL53L4CX_GetMultiRangingData(&data);

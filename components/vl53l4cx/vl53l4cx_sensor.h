@@ -31,6 +31,13 @@ class VL53L4CXComponent : public PollingComponent {
   void set_distance_mode(uint8_t mode) { this->distance_mode_ = mode; }
   void set_timing_budget(uint32_t budget_us) { this->timing_budget_us_ = budget_us; }
 
+  // ---- Runtime controls (callable from YAML lambdas / HA UI) ----
+  // Safe to call at any time: before setup() they just stage the value,
+  // after setup() they pause ranging, apply, and resume.
+  void apply_distance_mode(uint8_t mode);
+  void apply_timing_budget_ms(uint32_t budget_ms);
+  void apply_update_interval_ms(uint32_t interval_ms);
+
  protected:
   sensor::Sensor *distance_sensor_{nullptr};
   sensor::Sensor *object_count_sensor_{nullptr};
@@ -42,7 +49,9 @@ class VL53L4CXComponent : public PollingComponent {
   int xshut_pin_{-1};          // -1 = XSHUT not wired
   uint8_t distance_mode_{3};   // 1=short, 2=medium, 3=long
   uint32_t timing_budget_us_{50000};
-  uint32_t not_ready_count_{0};
+
+  bool ranging_{false};        // true once setup() finished successfully
+  uint32_t last_data_ms_{0};   // for the stalled-ranging watchdog
 
   // CRITICAL: the ST driver object is heap-allocated with `new` in setup().
   // Embedding it by value (or constructing it before setup) is exactly what

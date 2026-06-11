@@ -1,20 +1,29 @@
 # ESPHome VL53L4CX — Laser Distance Sensors for Home Assistant
 
-Turn a $15 laser Time-of-Flight sensor and a $7 ESP32 board into a polished
-Home Assistant distance sensor: parking guides, mailbox monitors, desk/bed
-presence, water-level gauges, people counting at a doorway.
+Turn a $15 laser Time-of-Flight sensor and a $7 ESP32 board into a finished
+Home Assistant device: parking guides, mailbox monitors, desk/bed presence,
+water-level gauges, people counting at a doorway.
 
-This is a complete ESPHome integration for the **ST VL53L4CX** (the Adafruit
-#5425 breakout) — the long-range, multi-target member of ST's laser family,
+A complete ESPHome integration for the **ST VL53L4CX** (the Adafruit #5425
+breakout) — the long-range, multi-target member of ST's laser family,
 previously unsupported in ESPHome. **Nothing to download:** your config
 references this repo and ESPHome fetches everything at build time.
 
-Each sensor gives you two entities in Home Assistant:
+## What you get per sensor
 
 | Entity | What it does |
 |---|---|
-| **Distance** | Nearest target, in millimeters, ~1 mm to ~6,000 mm. Reads `unknown` when nothing is in view — perfect for presence triggers. |
-| **Object Count** | How many separate targets the sensor sees at once. Unique to this chip — the cheaper VL53L0X/L1X can't do it. |
+| **Distance** | Nearest target in mm (~1 mm to ~6,000 mm). Reads `unknown` when nothing is in view. |
+| **Presence** | On/off occupancy, driven by the threshold slider below. The "it just works" entity for automations. |
+| **Presence Threshold** | Slider (mm). Closer than this = present. Tune it live from HA. |
+| **Object Count** | How many separate targets the sensor sees — unique to this chip. |
+| **Distance Mode** | Dropdown: short / medium / long range profile. Applies instantly, no reflash. |
+| **Timing Budget** | Slider: accuracy vs. speed. Applies instantly. |
+| **Update Interval** | Slider: how often it reports. Applies instantly. |
+| **Diagnostics** | WiFi signal, uptime, IP address, online status, restart button. |
+
+All settings persist across reboots. Distance reporting is
+database-friendly out of the box (reports on ≥5 mm change + 60 s heartbeat).
 
 ---
 
@@ -87,13 +96,27 @@ with:
 ### 5 — Add to Home Assistant
 
 Settings → **Devices & Services** → the discovered card → **Configure** →
-paste your `tof_api_key`. Both entities appear immediately.
+paste your `tof_api_key`. Everything appears immediately: sensors up top,
+the tuning controls under **Configuration**, health info under
+**Diagnostic**.
 
 > If it errors with "Unable to connect," restart Home Assistant and try
 > again — HA caches discovery info. Still stuck? **+ Add Integration** →
 > ESPHome → Host: `tof-kitchen.local`, Port `6053`.
 
 ---
+
+## Using it
+
+**Presence out of the box:** open the device page, set **Presence
+Threshold** to your trigger distance (e.g. 800 mm for "car is parked"), and
+automate on the **Presence** entity. The slider applies live — stand in
+front of the sensor and drag until it flips.
+
+**Tuning:** jittery readings? Raise **Timing Budget**. Need faster
+reaction? Lower **Update Interval** (keep it above the timing budget).
+Short-range high-accuracy job? Set **Distance Mode** to `short`. All from
+the HA UI, no reflashing, and the values survive reboots.
 
 ## Adding another sensor
 
@@ -111,47 +134,49 @@ The rules:
 
 At boot the component holds all sensors in reset, then wakes and
 re-addresses them one at a time, and refuses to start (with a clear log
-message) if these rules aren't met.
+message) if these rules aren't met. (The HA tuning controls in the standard
+package are wired to a single sensor; multi-sensor boards configure the
+component directly as shown in the example.)
 
 ## Configuration reference
 
-Override any of these as substitutions in your device file (simple) or use
-the component directly under `sensor:` for full control (see the multi-sensor
-example):
+Substitutions you can override in your device file:
 
-| Option | Default | Notes |
+| Substitution | Default | Notes |
 |---|---|---|
 | `name` / `friendly_name` | — | Device identity; `name` must be unique |
 | `board` | wemos_d1_mini32 | Any ESP32 PlatformIO board ID |
 | `sda_pin` / `scl_pin` | GPIO21 / GPIO22 | The component owns these pins — **do not** also define an ESPHome `i2c:` block on them |
-| `distance_mode` | long | `short` / `medium` / `long` (~6 m) |
-| `timing_budget` | 50ms | 20–500 ms; longer = steadier readings |
-| `update_interval` | 500ms | Must be longer than `timing_budget` |
+| `distance_mode` | long | Initial value; changeable live in HA |
+| `timing_budget_ms` | "50" | Initial value (bare number); changeable live in HA |
+| `update_interval_ms` | "500" | Initial value (bare number); changeable live in HA |
+| `presence_threshold_mm` | "1000" | Initial slider value |
+| `presence_off_delay` | 2s | Presence off-flicker smoothing |
 
-Component-level extras (under `- platform: vl53l4cx`): `address` (default
-0x29; non-default requires `xshut_pin`), `xshut_pin`, `frequency` (default
-100kHz), `object_count` (optional sensor block).
+Component-level extras (under `- platform: vl53l4cx`, see the multi-sensor
+example): `address` (default 0x29; non-default requires `xshut_pin`),
+`xshut_pin`, `frequency` (default 100kHz), `object_count` (optional block).
 
 ## Troubleshooting
 
 | Symptom | Fix |
 |---|---|
-| Build can't fetch the repo | Check the `github://` line for typos and that the repo is public. |
+| Build can't fetch the repo | Check the `github://` line for typos. |
 | Changed settings on GitHub aren't picked up | Device card → three-dot menu → **Clean Build Files** → Install (remote files are cached up to a day). |
 | `No ACK at boot address 0x29` | Wiring: SDA/SCL swapped, wrong pins in YAML, loose 3V3/GND. Power-cycle the sensor fully. |
 | Distance stuck at a small constant | Protective film still on, or an enclosure edge in the laser's view. |
-| Jittery readings | Raise `timing_budget` to `100ms`, `update_interval` to `1s`. |
+| Jittery readings | Raise the **Timing Budget** slider; lengthen **Update Interval**. |
+| Presence flickers | Raise `presence_off_delay` (device file) or move the threshold away from the resting distance. |
 | `Unable to connect` when adding to HA | Restart Home Assistant, then Configure again with the key. |
 | HA never asks for the key | Device was flashed before the key existed in secrets — Install again, restart HA. |
-| Entities `unknown` | Normal when nothing is in range. Point it at a wall to test. |
+| Distance `unknown` | Normal when nothing is in range. Point it at a wall to test. |
 
 ## Automation ideas
 
-`Distance` is a normal numeric sensor — Numeric State triggers ("below 800
-for 5 s" = car parked far enough in) or template binary sensors for
-presence. `Object Count` going `1 → 2` at a doorway makes a fun people
-counter. Distance reads `unknown` when the view is clear, so "state changed
-from unknown" is itself a clean arrival trigger.
+Automate on **Presence** for arrive/leave. For numeric logic, **Distance**
+is a normal sensor — Numeric State triggers ("below 800 for 5 s" = car
+pulled in far enough). **Object Count** going `1 → 2` at a doorway makes a
+fun people counter.
 
 ## Offline / no-GitHub install
 
@@ -163,10 +188,20 @@ Device files then use `packages: tof_device: !include packages/tof_sensor.yaml`.
 
 ## Pinning a version
 
-Releases are tagged. For configs that never change underneath you, pin the
-tag in both lines of your setup:
+Releases are tagged — see [CHANGELOG.md](CHANGELOG.md). For configs that
+never change underneath you, pin the tag:
 
 ```yaml
 packages:
-  tof_device: github://itsaustinjordan/esphome-vl53l4cx/packages/tof_sensor.yaml@v1.1.0
+  tof_device: github://itsaustinjordan/esphome-vl53l4cx/packages/tof_sensor.yaml@v1.2.0
 ```
+
+## Credits & history
+
+Built on ST's official `STM32duino VL53L4CX` driver (BSD-3-Clause, fetched
+at compile time). This chip went unsupported in ESPHome for four years
+because of a stack of separate traps: a driver object that must be
+heap-allocated on ESP32 (esphome/issues#3869), a mandatory interrupt-clear
+after every read, ESPHome removing the old `custom:` component system, and
+2025+ hybrid Arduino-on-IDF builds no longer auto-linking the Arduino `Wire`
+library. This component handles all of it. MIT licensed — see LICENSE.

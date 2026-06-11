@@ -1,7 +1,7 @@
 # =====================================================================
-# ToF Sensor device package -- referenced remotely from this GitHub
-# repo. End users never edit or download this file; their per-device
-# YAML overrides the substitutions below. See README.
+# ToF Sensor device package v1.2 -- referenced remotely from GitHub.
+# End users never edit or download this file; their per-device YAML
+# overrides the substitutions below. See README.
 # =====================================================================
 
 substitutions:
@@ -11,24 +11,30 @@ substitutions:
   board: wemos_d1_mini32
   sda_pin: GPIO21
   scl_pin: GPIO22
-  distance_mode: long          # short / medium / long (long = up to ~6 m)
-  timing_budget: 50ms          # 20ms-500ms; longer = more accurate
-  update_interval: 500ms       # must be longer than timing_budget
+  distance_mode: long            # short / medium / long (long = up to ~6 m)
+  timing_budget_ms: "50"         # 20-500; longer = more accurate
+  update_interval_ms: "500"      # how often to report; > timing_budget_ms
+  presence_threshold_mm: "1000"  # Presence turns on below this distance
+  presence_off_delay: 2s         # smooths flicker when leaving
 
 esphome:
   name: ${name}
   friendly_name: ${friendly_name}
+  min_version: "2025.2.0"
+  project:
+    name: itsaustinjordan.esphome-vl53l4cx
+    version: "1.2.0"
 
 esp32:
   board: ${board}
   framework:
-    type: arduino              # REQUIRED -- the ST driver is an Arduino library
+    type: arduino                # REQUIRED -- the ST driver is an Arduino library
 
 logger:
 
 api:
   encryption:
-    key: !secret tof_api_key   # one shared key for all ToF devices
+    key: !secret tof_api_key     # one shared key for all ToF devices
 
 ota:
   - platform: esphome
@@ -42,7 +48,7 @@ wifi:
 
 captive_portal:
 
-# The driver is pulled straight from this repo at compile time.
+# The driver is pulled straight from GitHub at compile time.
 external_components:
   - source: github://itsaustinjordan/esphome-vl53l4cx@main
     components: [ vl53l4cx ]
@@ -50,16 +56,127 @@ external_components:
 
 sensor:
   - platform: vl53l4cx
+    id: tof1
     sda_pin: ${sda_pin}
     scl_pin: ${scl_pin}
     distance:
       name: Distance
+      id: tof_distance
       filters:
         - sliding_window_moving_average:
             window_size: 3
             send_every: 1
+        # Recorder-friendly: report changes >= 5 mm, plus a 60 s heartbeat
+        # so Home Assistant's database isn't flooded with identical values.
+        - or:
+            - delta: 5.0
+            - heartbeat: 60s
     object_count:
       name: Object Count
     distance_mode: ${distance_mode}
-    timing_budget: ${timing_budget}
-    update_interval: ${update_interval}
+    timing_budget: ${timing_budget_ms}ms
+    update_interval: ${update_interval_ms}ms
+
+  # ---- Diagnostics ----
+  - platform: wifi_signal
+    name: WiFi Signal
+    update_interval: 60s
+    entity_category: diagnostic
+  - platform: uptime
+    name: Uptime
+    entity_category: diagnostic
+
+binary_sensor:
+  # Presence: ON when something is closer than the threshold slider.
+  # Uses the raw (unfiltered) reading so it reacts instantly even though
+  # the recorded Distance is rate-limited.
+  - platform: template
+    name: Presence
+    id: tof_presence
+    device_class: occupancy
+    lambda: |-
+      if (isnan(id(tof_distance).raw_state))
+        return false;
+      return id(tof_distance).raw_state < id(presence_threshold).state;
+    filters:
+      - delayed_off: ${presence_off_delay}
+
+  - platform: status
+    name: Status
+    entity_category: diagnostic
+
+number:
+  # Slider in HA: how close something must be to count as "present".
+  - platform: template
+    name: Presence Threshold
+    id: presence_threshold
+    unit_of_measurement: mm
+    icon: mdi:arrow-collapse-down
+    min_value: 50
+    max_value: 6000
+    step: 10
+    initial_value: ${presence_threshold_mm}
+    optimistic: true
+    restore_value: true
+    entity_category: config
+
+  # Live-tunable accuracy: applied to the chip without rebooting.
+  - platform: template
+    name: Timing Budget
+    id: timing_budget_number
+    unit_of_measurement: ms
+    icon: mdi:timer-cog-outline
+    min_value: 20
+    max_value: 500
+    step: 10
+    initial_value: ${timing_budget_ms}
+    optimistic: true
+    restore_value: true
+    entity_category: config
+    on_value:
+      - lambda: 'id(tof1).apply_timing_budget_ms((uint32_t) x);'
+
+  # Live-tunable reporting rate.
+  - platform: template
+    name: Update Interval
+    id: update_interval_number
+    unit_of_measurement: ms
+    icon: mdi:update
+    min_value: 100
+    max_value: 10000
+    step: 100
+    initial_value: ${update_interval_ms}
+    optimistic: true
+    restore_value: true
+    entity_category: config
+    on_value:
+      - lambda: 'id(tof1).apply_update_interval_ms((uint32_t) x);'
+
+select:
+  # Live-switchable range profile.
+  - platform: template
+    name: Distance Mode
+    id: distance_mode_select
+    icon: mdi:signal-distance-variant
+    options: ["short", "medium", "long"]
+    initial_option: ${distance_mode}
+    optimistic: true
+    restore_value: true
+    entity_category: config
+    on_value:
+      - lambda: |-
+          uint8_t m = 3;
+          if (x == "short") m = 1;
+          else if (x == "medium") m = 2;
+          id(tof1).apply_distance_mode(m);
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: IP Address
+      entity_category: diagnostic
+
+button:
+  - platform: restart
+    name: Restart
+    entity_category: config
